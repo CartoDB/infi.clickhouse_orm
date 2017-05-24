@@ -7,6 +7,8 @@ from .fields import Field
 from .utils import parse_tsv
 from .query import QuerySet
 
+import re
+
 logger = getLogger('clickhouse_orm')
 
 
@@ -63,7 +65,15 @@ class ModelBase(type):
             length = int(db_type[12 : -1])
             return orm_fields.FixedStringField(length)
         # Simple fields
-        name = db_type + 'Field'
+        m = re.search('\ANullable\((.+?)\)\Z', db_type)
+        if m:
+            # TODO: specific Nullable classes which translate '\\N' to None
+            # since we're using non-nullable classes Null values will ause
+            # error for numeric columns etc and will be interpreted as '\\N'
+            # for text columns
+            name = m.group(1) + 'Field'
+        else:
+            name = db_type + 'Field'
         if not hasattr(orm_fields, name):
             raise NotImplementedError('No field class for %s' % db_type)
         return getattr(orm_fields, name)()
